@@ -1,0 +1,52 @@
+{
+  "commands": [
+    {
+      "command": ["echo", "Hello", "[INPUT:text:Enter your name:User]"],
+      "description": "Greet with custom name",
+      "expected_output": "Outputs a greeting with the name you provide",
+      "explanation": "Simple example of text input - you can enter any name and it will be inserted into the command."
+    },
+    {
+      "command": ["ls", "-la", "[INPUT:select:Choose directory:. (current):.. (parent):/tmp:/home]"],
+      "description": "List files in selected directory",
+      "expected_output": "File listing for the selected directory",
+      "explanation": "Example of selection from predefined options - you can choose which directory to list."
+    },
+    {
+      "command": ["cat", "[INPUT:file:Select a file to view:*.md]"],
+      "description": "View markdown file content",
+      "expected_output": "Content of the selected markdown file",
+      "explanation": "Example of file selection - shows a list of all markdown files and lets you choose one."
+    },
+    {
+      "command": ["find", ".", "-name", "[INPUT:text:Enter file pattern:*.json]", "-type", "f"],
+      "description": "Find files by pattern",
+      "expected_output": "List of files matching the specified pattern",
+      "explanation": "Example of using text input for a file pattern - will find all files that match your pattern."
+    },
+    {
+      "command": ["bash", "-c", "echo 'Processing file: [INPUT:timestamp_file:Select log file:log_*.txt:./examples/logs:latest]'"],
+      "description": "Process latest log file (using bash)",
+      "expected_output": "Confirmation of which timestamped log file was selected",
+      "explanation": "Special handling for files with timestamps - can automatically select the latest file or let you choose from all matching files."
+    },
+    {
+      "command": ["python3", "-c", "print('Processing file: [INPUT:timestamp_file:Select log file:log_*.txt:./examples/logs:latest]')"],
+      "description": "Process latest log file (using python3)",
+      "expected_output": "Confirmation of which timestamped log file was selected",
+      "explanation": "Special handling for files with timestamps - using Python (may fail if Python is not installed)."
+    },
+    {
+      "command": ["grep", "[INPUT:text:Search pattern:]", "[INPUT:file:Select file to search in:]"],
+      "description": "Search in file with custom pattern",
+      "expected_output": "Lines from the selected file that match your search pattern",
+      "explanation": "Complex example with multiple inputs - you can specify both what to search for and which file to search in."
+    },
+    {
+      "command": ["./examples/analyze_log.py", "[INPUT:timestamp_file:Select log to analyze:log_*.txt:./examples/logs:latest]"],
+      "description": "Analyze log file with Python script",
+      "expected_output": "Log file analysis showing line count and first/last entries",
+      "explanation": "Real-world example of using a Python script to analyze a timestamped log file. This demonstrates how to combine a script with the timestamp_file input type."
+    }
+  ]
+}

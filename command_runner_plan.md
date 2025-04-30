@@ -15,6 +15,205 @@ This document outlines a comprehensive plan to enhance the existing Command Runn
 
 ## Implementation Phases
 
+### Phase 0: Dynamic Input System
+
+#### Implementation Details
+
+Add support for commands that require dynamic user input, such as runtime arguments and file selection with pattern matching:
+
+```lua
+-- Add to your plugin
+local function process_dynamic_inputs(cmd_arr)
+  local processed_cmd = {}
+  
+  for _, part in ipairs(cmd_arr) do
+    if type(part) == "string" and string.match(part, "^%[INPUT:.+%]$") then
+      -- Extract the input specification
+      local input_spec = string.match(part, "^%[INPUT:(.+)%]$")
+      local input_parts = vim.split(input_spec, ":", { plain = true })
+      
+      local input_type = input_parts[1]
+      local prompt = input_parts[2] or "Enter value:"
+      local default = input_parts[3] or ""
+      
+      if input_type == "text" then
+        -- Simple text input
+        local input_value = vim.fn.input({
+          prompt = prompt .. " ",
+          default = default,
+          completion = input_parts[4] -- Optional completion type
+        })
+        
+        if input_value and input_value ~= "" then
+          table.insert(processed_cmd, input_value)
+        else
+          table.insert(processed_cmd, default)
+        end
+      elseif input_type == "file" then
+        -- File selection with optional pattern
+        local pattern = input_parts[3] or "*"
+        local base_dir = input_parts[4] or vim.fn.getcwd()
+        
+        -- Find matching files
+        local glob_pattern = base_dir .. "/" .. pattern
+        local matching_files = vim.fn.glob(glob_pattern, false, true)
+        
+        if #matching_files == 0 then
+          vim.notify("No files match pattern: " .. pattern, vim.log.levels.WARN)
+          table.insert(processed_cmd, "") -- Empty string as fallback
+        elseif #matching_files == 1 then
+          -- Only one match, use it directly
+          table.insert(processed_cmd, matching_files[1])
+        else
+          -- Multiple matches, let user select
+          vim.ui.select(matching_files, {
+            prompt = prompt,
+            format_item = function(item)
+              return vim.fn.fnamemodify(item, ":t")
+            end
+          }, function(choice)
+            if choice then
+              table.insert(processed_cmd, choice)
+            else
+              -- User cancelled, use default or empty
+              table.insert(processed_cmd, default)
+            end
+          end)
+        end
+      elseif input_type == "select" then
+        -- Selection from predefined options
+        local options = {}
+        for i = 3, #input_parts do
+          table.insert(options, input_parts[i])
+        end
+        
+        if #options == 0 then
+          vim.notify("No options provided for selection", vim.log.levels.WARN)
+          table.insert(processed_cmd, default)
+        else
+          vim.ui.select(options, {
+            prompt = prompt
+          }, function(choice)
+            if choice then
+              table.insert(processed_cmd, choice)
+            else
+              -- User cancelled, use default or first option
+              table.insert(processed_cmd, default ~= "" and default or options[1])
+            end
+          end)
+        end
+      elseif input_type == "timestamp_file" then
+        -- Special case for files with timestamps
+        local pattern = input_parts[3] or "*"
+        local base_dir = input_parts[4] or vim.fn.getcwd()
+        local base_pattern, ext = string.match(pattern, "^(.+)%.(.+)$")
+        
+        if not base_pattern then
+          base_pattern = pattern
+          ext = ""
+        end
+        
+        -- Create pattern that matches timestamp variations
+        local ts_pattern = base_pattern .. "_[0-9]+" .. (ext ~= "" and ("." .. ext) or "")
+        local glob_pattern = base_dir .. "/" .. ts_pattern
+        
+        -- Find matching files
+        local matching_files = vim.fn.glob(glob_pattern, false, true)
+        
+        -- Sort files by modification time (newest first)
+        table.sort(matching_files, function(a, b)
+          return vim.fn.getftime(a) > vim.fn.getftime(b)
+        end)
+        
+        if #matching_files == 0 then
+          vim.notify("No timestamp files match pattern: " .. ts_pattern, vim.log.levels.WARN)
+          table.insert(processed_cmd, "") -- Empty string as fallback
+        elseif #matching_files == 1 or input_parts[5] == "latest" then
+          -- Only one match or explicitly requesting latest, use it directly
+          table.insert(processed_cmd, matching_files[1])
+        else
+          -- Multiple matches, let user select
+          vim.ui.select(matching_files, {
+            prompt = prompt,
+            format_item = function(item)
+              local filename = vim.fn.fnamemodify(item, ":t")
+              local mtime = os.date("%Y-%m-%d %H:%M:%S", vim.fn.getftime(item))
+              return filename .. " (" .. mtime .. ")"
+            end
+          }, function(choice)
+            if choice then
+              table.insert(processed_cmd, choice)
+            else
+              -- User cancelled, use latest by default
+              table.insert(processed_cmd, matching_files[1])
+            end
+          end)
+        end
+      end
+    else
+      -- Regular command part, just pass through
+      table.insert(processed_cmd, part)
+    end
+  end
+  
+  return processed_cmd
+end
+```
+
+#### JSON Format Update
+
+```json
+{
+  "commands": [
+    {
+      "command": ["python", "script.py", "[INPUT:text:Enter a parameter:]"],
+      "description": "Run Python script with parameter"
+    },
+    {
+      "command": ["cat", "[INPUT:file:Select a file:*.txt:./data]"],
+      "description": "View a text file from data directory"
+    },
+    {
+      "command": ["python", "analyze.py", "[INPUT:timestamp_file:Select log file:log_*.csv:./logs]"],
+      "description": "Analyze a timestamped log file"
+    },
+    {
+      "command": ["grep", "[INPUT:text:Search pattern:]", "[INPUT:file:Select file to search:]"],
+      "description": "Search in a file with custom pattern"
+    },
+    {
+      "command": ["git", "checkout", "[INPUT:select:Select branch:main:develop:feature/x]"],
+      "description": "Checkout a git branch"
+    }
+  ]
+}
+```
+
+#### Update Command Execution
+
+```lua
+local function run_selected_command(cmd_table, on_done)
+  status.show("Preparing command...", "info")
+
+  -- Process dynamic inputs
+  local cmd_with_inputs = process_dynamic_inputs(cmd_table.command)
+  
+  -- Then continue with variable substitution if implemented
+  local full_cmd
+  if #last_output > 0 then
+    full_cmd = vim.list_extend(vim.deepcopy(cmd_with_inputs), last_output)
+  else
+    full_cmd = cmd_with_inputs
+  end
+
+  status.show("Running command...", "info")
+  run_system_async(full_cmd, function(result)
+    -- Rest of the function remains the same
+    -- ...
+  end)
+end
+```
+
 ### Phase 1: Validation System
 
 #### Implementation Details
@@ -1452,7 +1651,7 @@ Here are complete example configurations for different testing scenarios:
 
 8. **Parametrized Tests**: Run the same command with different parameters from a list.
 
-9. **Interactive Commands**: Support for commands that require user input during execution.
+9. ~~**Interactive Commands**: Support for commands that require user input during execution.~~ (Implemented in Phase 0)
 
 10. **Schedule Integration**: Schedule command chains to run at specific times or intervals.
 

@@ -1,0 +1,40 @@
+{
+  "commands": [
+    {
+      "command": ["./examples/multi_input_script.py", "[INPUT:text:Enter IP address:127.0.0.1]", "[INPUT:text:Enter port number:8080]"],
+      "description": "Scan for services on IP:port",
+      "expected_output": "Lists services found on the specified IP and port",
+      "explanation": "This script scans for services on a specific IP address and port. The output will list all detected services with their IDs. You can pipe a service to the service investigator command."
+    },
+    {
+      "command": ["./examples/service_investigator.py", "[INPUT:ref:enter_ip_address]", "[INPUT:ref:last_pipe]"],
+      "description": "Investigate a specific service",
+      "expected_output": "Detailed information about the selected service",
+      "explanation": "Takes an IP address and service ID as input. The IP address should be the same one used in the scanner command. The service ID should be piped from the scanner output."
+    },
+    {
+      "command": ["./examples/file_processor.py", "[INPUT:regen_file:Select data file to process:data_file:./examples:_generate]"],
+      "description": "Process data file (regenerate if needed)",
+      "expected_output": "Processes a data file, or generates a new one if specified",
+      "explanation": "This command processes a data file that might need to be regenerated with a timestamp. If the file doesn't exist or processing fails, you can regenerate it with a new timestamp by selecting the 'Generate new file' option."
+    },
+    {
+      "command": ["bash", "-c", "echo 'You entered [INPUT:multi:text:Enter first value::Enter second value:]'"],
+      "description": "Multiple sequential inputs",
+      "expected_output": "Shows the values you entered",
+      "explanation": "Demonstrates the multi input type, which prompts for multiple values in sequence."
+    },
+    {
+      "command": ["bash", "-c", "echo 'Processing report for IP [INPUT:text:Enter IP address:192.168.1.1] on service [INPUT:text:Enter service ID:SERV1234]'"],
+      "description": "Generate report for IP and service",
+      "expected_output": "A report for the specified IP and service",
+      "explanation": "This command generates a report for the specified IP address and service ID. You can reference these inputs in subsequent commands."
+    },
+    {
+      "command": ["bash", "-c", "echo 'Follow-up report for [INPUT:ref:enter_ip_address] on [INPUT:ref:enter_service_id]'"],
+      "description": "Follow-up report (uses previous inputs)",
+      "expected_output": "A follow-up report using previously entered values",
+      "explanation": "This command references inputs from previous commands, showing how to reuse values across multiple commands."
+    }
+  ]
+}

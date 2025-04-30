@@ -1,0 +1,48 @@
+{
+  "commands": [
+    {
+      "command": ["ls", "-la"],
+      "description": "List files with details",
+      "validation": {
+        "contains": ["total", "."],
+        "matches": ["d[rwx-]{9}"],
+        "exit_code": 0,
+        "line_count": {
+          "min": 3
+        }
+      },
+      "expected_output": "Should list all files including hidden ones with details like permissions",
+      "explanation": "The command shows all files in the current directory, including hidden files that start with a dot. The output includes permissions, owner, size, and modification date."
+    },
+    {
+      "command": ["pwd"],
+      "description": "Show current directory",
+      "validation": {
+        "exit_code": 0
+      },
+      "expected_output": "Current working directory path"
+    },
+    {
+      "command": ["grep", "-r", "--include=*.lua", "validation", "."],
+      "description": "Find validation in Lua files",
+      "validation": {
+        "contains": ["validation"],
+        "line_count": {
+          "min": 1
+        }
+      },
+      "expected_output": "Should find all occurrences of 'validation' in Lua files",
+      "explanation": "This search helps locate the validation code we just implemented in the codebase"
+    },
+    {
+      "command": ["git", "status"],
+      "description": "Show git repository status",
+      "validation": {
+        "contains": ["branch"],
+        "exit_code": 0
+      },
+      "expected_output": "Git status showing branch and file changes",
+      "explanation": "Shows the current branch and changed files in the repository"
+    }
+  ]
+}

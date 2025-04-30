@@ -3,6 +3,8 @@ local M = {}
 local status = require("command_runner.ui.status")
 local output_ui = require("command_runner.ui.output")
 local popup = require("command_runner.ui.popup")
+local validation = require("command_runner.core.validation")
+local input = require("command_runner.core.input")
 
 -- Command history
 local COMMAND_HISTORY = {}
@@ -50,40 +52,97 @@ end
 
 -- Run system command asynchronously
 local function run_system_async(cmd_args, callback)
-  vim.system(cmd_args, { text = true }, function(obj)
-    vim.schedule(function()
-      if obj.code ~= 0 then
-        callback({
-          success = false,
-          output = obj.stderr or "Command failed with no error output",
-          code = obj.code,
-        })
-      else
-        callback({
-          success = true,
-          output = obj.stdout == "" and "Command completed with no output" or obj.stdout,
-          code = 0,
-        })
-      end
+  -- Ensure the command exists before trying to run it
+  local cmd = cmd_args[1]
+  local exists = true
+  
+  -- Function to call the callback with a friendly error message
+  local function handle_command_not_found(command, suggestion)
+    local msg = "Command not found: " .. command
+    if suggestion then
+      msg = msg .. "\n" .. suggestion
+    end
+    
+    callback({
+      success = false,
+      output = msg,
+      code = 127, -- Standard "command not found" exit code
+      command_not_found = true
+    })
+  end
+  
+  -- Common commands and their alternatives for suggestions
+  local command_alternatives = {
+    ["python"] = "Try using 'python3' instead",
+    ["pip"] = "Try using 'pip3' instead",
+    ["node"] = "Make sure Node.js is installed and in your PATH"
+  }
+  
+  -- Check if it's a common command with a known alternative
+  if command_alternatives[cmd] and vim.fn.executable(cmd) == 0 then
+    handle_command_not_found(cmd, command_alternatives[cmd])
+    return
+  end
+  
+  -- Try running the command
+  local ok, _ = pcall(function()
+    vim.system(cmd_args, { text = true }, function(obj)
+      vim.schedule(function()
+        if obj.code ~= 0 then
+          callback({
+            success = false,
+            output = obj.stderr or "Command failed with no error output",
+            code = obj.code,
+          })
+        else
+          callback({
+            success = true,
+            output = obj.stdout == "" and "Command completed with no output" or obj.stdout,
+            code = 0,
+          })
+        end
+      end)
     end)
   end)
+  
+  -- Handle any errors in launching the command
+  if not ok then
+    handle_command_not_found(cmd, command_alternatives[cmd])
+  end
 end
 
 -- Execute the selected command
 local function run_selected_command(cmd_table, on_done)
-  status.show("Running command...", "info")
+  status.show("Preparing command...", "info")
 
+  -- Process any dynamic inputs in the command
+  local cmd_with_inputs = input.process_dynamic_inputs(cmd_table.command)
+  
+  -- Process piped output if available
   local full_cmd
   local last_output = output_ui.get_last_output()
   
   if #last_output > 0 then
-    full_cmd = vim.list_extend(vim.deepcopy(cmd_table.command), last_output)
+    full_cmd = vim.list_extend(vim.deepcopy(cmd_with_inputs), last_output)
   else
-    full_cmd = cmd_table.command
+    full_cmd = cmd_with_inputs
   end
+  
+  status.show("Running command...", "info")
 
   run_system_async(full_cmd, function(result)
-    output_ui.show_output(result, on_done)
+    -- Add validation logic
+    if cmd_table.validation then
+      local validation_results = validation.validate_command_output(result, cmd_table.validation)
+      result.validation_results = validation_results
+      
+      if not validation_results.passed then
+        result.validation_failed = true
+        -- Keep original success status for the command itself
+      end
+    end
+    
+    output_ui.show_output(result, cmd_table, on_done)
   end)
 end
 
