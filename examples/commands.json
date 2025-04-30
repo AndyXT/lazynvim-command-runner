@@ -1,0 +1,28 @@
+{
+  "commands": [
+    {
+      "command": ["ls", "-la"],
+      "description": "List all files with details"
+    },
+    {
+      "command": ["echo", "Hello", "World!"],
+      "description": "Print greeting message"
+    },
+    {
+      "command": ["git", "status"],
+      "description": "View git status"
+    },
+    {
+      "command": ["pwd"],
+      "description": "Print working directory"
+    },
+    {
+      "command": ["nvim", "--version"],
+      "description": "Show Neovim version"
+    },
+    {
+      "command": ["grep", "-r", "--include=*.lua", "require", "."],
+      "description": "Find all Lua requires"
+    }
+  ]
+}
