@@ -1,20 +1,21 @@
-# Command Runner for Neovim
+# Command Runner
 
-A powerful plugin for running shell commands from JSON configuration files with output capture, piping, and more.
+A Neovim plugin to run shell commands from a predefined JSON configuration. Command Runner provides a convenient UI for executing, managing, and piping command output between commands.
 
-![Command Runner Screenshot](https://github.com/yourusername/command-runner.nvim/assets/screenshot.png)
+![Command Runner Demo](https://github.com/yourusername/command-runner.nvim/raw/main/assets/demo.gif)
 
 ## Features
 
-- 📋 Run predefined shell commands from a JSON config file
-- 📎 Pipe command output between commands
-- 📝 View command outputs in floating windows 
-- 🕒 Command execution history
-- 🔄 Configurable UI and behavior
+- 📋 Run shell commands from a JSON configuration file
+- 🔄 Pipe output between commands
+- 📝 Store command history for easy reuse
+- 🚨 Detailed error reporting and inspection
+- 🎨 Clean, minimal UI with keybindings
+- 🔧 Customizable configuration
 
 ## Installation
 
-### Using LazyVim
+### Using [lazy.nvim](https://github.com/folke/lazy.nvim)
 
 ```lua
 {
@@ -22,30 +23,22 @@ A powerful plugin for running shell commands from JSON configuration files with 
   event = "VeryLazy",
   config = function()
     require("command_runner").setup({
-      -- your configuration here
+      -- options...
     })
-    
-    -- Add keymapping
-    vim.keymap.set("n", "<leader>cr", "<cmd>CommandRunner<cr>", 
-      { desc = "Run commands from JSON file" })
   end,
 }
 ```
 
-### Using Packer
+### Using [packer.nvim](https://github.com/wbthomason/packer.nvim)
 
 ```lua
 use {
-  'yourusername/command-runner.nvim',
+  "yourusername/command-runner.nvim",
   config = function()
     require("command_runner").setup({
-      -- your configuration here
+      -- options...
     })
-    
-    -- Add keymapping
-    vim.keymap.set("n", "<leader>cr", "<cmd>CommandRunner<cr>", 
-      { desc = "Run commands from JSON file" })
-  end
+  end,
 }
 ```
 
@@ -55,23 +48,38 @@ use {
 
 ```lua
 require("command_runner").setup({
-  command_name = "CommandRunner",  -- The name of the command
-  default_json_path = nil,         -- Default path to commands.json (nil = use CWD)
-  max_history = 50,                -- Number of commands to keep in history
-  popup_width = 0.5,               -- Width of popup windows (0-1)
-  popup_height = 0.4,              -- Height of popup windows (0-1)
-  popup_border = "rounded",        -- Border style for popups
-  highlight_success = "Normal",    -- Highlight group for success
-  highlight_error = "ErrorFloat",  -- Highlight group for errors
-  highlight_warning = "WarningFloat", -- Highlight group for warnings
+  command_name = "CommandRunner", -- The name of the command to use
+  default_json_path = nil, -- Default path to commands.json (nil = use CWD)
+  max_history = 50, -- Maximum number of commands to store in history
+  popup = {
+    width = 0.5, -- 50% of screen width
+    height = 0.4, -- 40% of screen height
+    border = "rounded",
+  },
+  status = {
+    show = true,
+    duration = 3000, -- milliseconds
+  }
 })
 ```
 
+### Adding a Keymap
+
+```lua
+vim.keymap.set("n", "<leader>cr", "<cmd>CommandRunner<cr>", 
+  { desc = "Run commands from JSON file" })
+```
+
+## Commands
+
+- `:CommandRunner` - Opens the command list UI
+- `:CommandRunner /path/to/commands.json` - Opens with a specific commands file
+
 ## Usage
 
-### Basic Usage
+### Commands JSON Format
 
-1. Create a `commands.json` file in your project directory:
+Create a `commands.json` file in your project directory:
 
 ```json
 {
@@ -81,6 +89,10 @@ require("command_runner").setup({
       "description": "List all files with details"
     },
     {
+      "command": ["echo", "Hello", "World!"],
+      "description": "Print greeting message"
+    },
+    {
       "command": ["git", "status"],
       "description": "View git status"
     }
@@ -88,59 +100,47 @@ require("command_runner").setup({
 }
 ```
 
-2. Run `:CommandRunner` to show the command list
-3. Select a command with the cursor and press Enter to run
-4. View command output in a popup window
-5. Optionally pipe output to another command
+### Command List UI
 
-### Piping Output Between Commands
+Press `<leader>cr` or run `:CommandRunner` to open the command list UI:
 
-After running a command, you can pipe its output to another command:
+- `Enter` - Run the selected command
+- `c` - Clear piped output
+- `q` / `Esc` - Close the UI
+- `p` / `n` - Navigate through command history
 
-1. Press `p` in the output window
-2. Choose what to pipe (current line, selection, or all output)
-3. The output will be piped to the next command you run
-4. Commands with piped input show a 📎 icon
+### Command Output UI
 
-### Command JSON Format
+After running a command:
 
-```json
-{
-  "commands": [
-    {
-      "command": ["executable", "arg1", "arg2"],
-      "description": "Human readable description"
-    }
-  ]
-}
-```
+- `p` - Pipe output (with options: line, selection, all)
+- `n` - Skip piping (clear pipe buffer)
+- `e` - View error details (only if command failed)
+- `q` / `Esc` - Close the output view
 
-- Each command is an array of strings, just like you would type in a terminal
-- The first element is the executable, followed by arguments
-- The description appears in the UI
+## Advanced Features
 
-## Keyboard Shortcuts
+### Piping Between Commands
 
-### Command List Window
+You can pipe output from one command to another:
 
-- `Enter` - Run selected command
-- `c` - Clear piped data
-- `p` - Previous command in history
-- `n` - Next command in history
-- `q` - Close window
+1. Run a command
+2. Press `p` to pipe the output
+3. Select what to pipe (line at cursor, selection, or all)
+4. Run another command that will receive the piped content as arguments
 
-### Output Window
+## Roadmap
 
-- `p` - Pipe output
-- `n` - Skip pipe
-- `v` - Visual select for piping
-- `e` - Show error details (for failed commands)
-- `q` - Close window
-
-## License
-
-MIT
+- [ ] Command chains for executing sequences of commands
+- [ ] Output validation to verify command results
+- [ ] Variable extraction and substitution
+- [ ] Enhanced UI with filtering and search
+- [ ] Multiple configuration file support
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Feel free to open issues or submit pull requests.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.

@@ -1,35 +1,26 @@
 # Compiled Lua sources
 luac.out
 
-# Lua compiler
-*.so
-*.dll
-
-# Vim temporary files
-[._]*.s[a-w][a-z]
-[._]s[a-w][a-z]
-*.un~
-Session.vim
+# Nvim related files
 .netrwhist
 *~
 
-# Vim doc tag files
-doc/tags
+# Temp files
+*.swp
+*.swo
 
-# macOS system files
+# Test files
+*.test.lua
+
+# OS specific files
 .DS_Store
-.AppleDouble
-.LSOverride
-Icon?
-._*
-.Spotlight-V100
-.Trashes
-
-# Windows system files
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
 
-# Log files
-*.log
+# Compiled files
+*.o
+*.so
+*.dll
+
+# Dependencies
+/vendor/
+/node_modules/

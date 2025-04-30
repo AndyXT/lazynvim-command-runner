@@ -1,14 +1,12 @@
--- command_runner.lua
--- Plugin registration for Command Runner
-
-if vim.g.loaded_command_runner then
+-- Ensure plugin runs once
+if vim.g.loaded_command_runner == 1 then
   return
 end
-vim.g.loaded_command_runner = true
+vim.g.loaded_command_runner = 1
 
--- Create user command
+-- Create the command with default options
 vim.api.nvim_create_user_command("CommandRunner", function(opts)
-  require("command_runner").run(opts)
+  require("command_runner.core.command").run(opts)
 end, {
   nargs = "?",
   desc = "Run commands from a JSON file (accepts optional file path)",

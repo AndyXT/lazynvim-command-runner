@@ -1,20 +1,16 @@
--- status.lua
--- Status display functions for Command Runner
-
 local M = {}
 
--- Track status window
 local STATUS_WINDOW = nil
 
--------------------------------------------------------------------------------
--- Show status indicator
--------------------------------------------------------------------------------
-function M.show_status(msg, level)
-  if STATUS_WINDOW then
-    if vim.api.nvim_win_is_valid(STATUS_WINDOW) then
-      vim.api.nvim_win_close(STATUS_WINDOW, true)
-    end
-    STATUS_WINDOW = nil
+function M.show(msg, level)
+  local config = require("command_runner.core.config").options
+  
+  if not config.status.show then
+    return
+  end
+
+  if STATUS_WINDOW and vim.api.nvim_win_is_valid(STATUS_WINDOW) then
+    vim.api.nvim_win_close(STATUS_WINDOW, true)
   end
 
   local lines = { msg }
@@ -32,13 +28,13 @@ function M.show_status(msg, level)
     border = "single",
   })
 
-  -- Auto-close after 3 seconds
+  -- Auto-close after configured duration
   vim.defer_fn(function()
     if STATUS_WINDOW and vim.api.nvim_win_is_valid(STATUS_WINDOW) then
       vim.api.nvim_win_close(STATUS_WINDOW, true)
       STATUS_WINDOW = nil
     end
-  end, 3000)
+  end, config.status.duration)
 end
 
 return M

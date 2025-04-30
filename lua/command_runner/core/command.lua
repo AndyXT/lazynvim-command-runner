@@ -1,34 +1,31 @@
--- command.lua
--- Command execution and management for Command Runner
-
 local M = {}
-local config = require("command_runner.core.config")
-local ui = require("command_runner.ui.status")
 
--- State variables
-M.COMMANDS = {}
-M.LAST_OUTPUT = {}
-M.COMMAND_HISTORY = {}
-M.HISTORY_INDEX = 1
-M.JSON_FILE_PATH = nil
+local status = require("command_runner.ui.status")
+local output_ui = require("command_runner.ui.output")
+local popup = require("command_runner.ui.popup")
 
--------------------------------------------------------------------------------
--- Command history management
--------------------------------------------------------------------------------
-function M.add_to_history(cmd)
+-- Command history
+local COMMAND_HISTORY = {}
+local HISTORY_INDEX = 1
+local COMMANDS = {}
+local JSON_FILE_PATH = nil
+
+-- Add command to history
+local function add_to_history(cmd)
+  local config = require("command_runner.core.config").options
+  local max_history = config.max_history or 50
+  
   -- Add to front of history
-  table.insert(M.COMMAND_HISTORY, 1, cmd)
+  table.insert(COMMAND_HISTORY, 1, cmd)
   -- Trim history if needed
-  if #M.COMMAND_HISTORY > config.options.max_history then
-    table.remove(M.COMMAND_HISTORY)
+  if #COMMAND_HISTORY > max_history then
+    table.remove(COMMAND_HISTORY)
   end
-  M.HISTORY_INDEX = 1
+  HISTORY_INDEX = 1
 end
 
--------------------------------------------------------------------------------
--- JSON loading
--------------------------------------------------------------------------------
-function M.load_commands_from_json(json_file)
+-- Read commands from JSON file
+local function load_commands_from_json(json_file)
   -- Attempt to read the file
   local ok, lines = pcall(vim.fn.readfile, json_file)
   if not ok then
@@ -51,58 +48,8 @@ function M.load_commands_from_json(json_file)
   return data.commands, nil
 end
 
--------------------------------------------------------------------------------
--- Command file resolution
--------------------------------------------------------------------------------
-function M.resolve_command_file(path, default_path)
-  -- Allow providing a specific JSON file path
-  local cmd_file
-  
-  if path and path ~= "" then
-    -- Use provided file path
-    cmd_file = path
-  elseif M.JSON_FILE_PATH then
-    -- Use cached file path
-    cmd_file = M.JSON_FILE_PATH
-  elseif default_path then
-    -- Use configured default path
-    cmd_file = default_path
-  else
-    -- Default to commands.json in current working directory
-    cmd_file = vim.fn.getcwd() .. "/commands.json"
-  end
-  
-  return cmd_file
-end
-
--------------------------------------------------------------------------------
--- Command file loading
--------------------------------------------------------------------------------
-function M.load_command_file(file_path)
-  -- Store the path for future use
-  M.JSON_FILE_PATH = file_path
-  
-  local list, err = M.load_commands_from_json(file_path)
-  if err then
-    vim.notify(err, vim.log.levels.ERROR)
-    return false
-  end
-
-  M.COMMANDS = list
-  if #M.COMMANDS == 0 then
-    vim.notify("No commands found in JSON file: " .. file_path, vim.log.levels.WARN)
-    return false
-  end
-  
-  return true
-end
-
--------------------------------------------------------------------------------
--- Async command execution
--------------------------------------------------------------------------------
-function M.run_system_async(cmd_args, callback)
-  ui.show_status("Running command...", "info")
-  
+-- Run system command asynchronously
+local function run_system_async(cmd_args, callback)
   vim.system(cmd_args, { text = true }, function(obj)
     vim.schedule(function()
       if obj.code ~= 0 then
@@ -122,21 +69,162 @@ function M.run_system_async(cmd_args, callback)
   end)
 end
 
--------------------------------------------------------------------------------
--- Run command with piping support
--------------------------------------------------------------------------------
-function M.run_selected_command(cmd_table, on_done)
+-- Execute the selected command
+local function run_selected_command(cmd_table, on_done)
+  status.show("Running command...", "info")
+
   local full_cmd
-  if #M.LAST_OUTPUT > 0 then
-    full_cmd = vim.list_extend(vim.deepcopy(cmd_table), M.LAST_OUTPUT)
+  local last_output = output_ui.get_last_output()
+  
+  if #last_output > 0 then
+    full_cmd = vim.list_extend(vim.deepcopy(cmd_table.command), last_output)
   else
-    full_cmd = cmd_table
+    full_cmd = cmd_table.command
   end
 
-  M.run_system_async(full_cmd, function(result)
-    local output_ui = require("command_runner.ui.output")
-    output_ui.show_output_popup(result, on_done)
+  run_system_async(full_cmd, function(result)
+    output_ui.show_output(result, on_done)
   end)
+end
+
+-- Display the command list UI
+local function show_command_list()
+  local display_lines = {}
+  local last_output = output_ui.get_last_output()
+  
+  for i, cmd in ipairs(COMMANDS) do
+    local prefix = (#last_output > 0) and "📎 " or "  "
+    local cmd_str = table.concat(cmd.command, " ")
+    local desc = cmd.description or ""
+    display_lines[i] = string.format("%s%-30s │ %s", prefix, cmd_str, desc)
+  end
+
+  local function keymaps(buf, win_id, opts)
+    local keymap_list = {
+      { "⏎", "Run command" },
+      { "c", "Clear pipe" },
+      { "q", "Quit" },
+    }
+
+    local footer_win = popup.create_footer(win_id, opts, keymap_list)
+    vim.b[buf].footer_win = footer_win
+
+    local function close_windows()
+      if vim.api.nvim_win_is_valid(footer_win) then
+        vim.api.nvim_win_close(footer_win, true)
+      end
+      vim.api.nvim_win_close(win_id, true)
+    end
+
+    vim.keymap.set("n", "<Esc>", close_windows, { buffer = buf, noremap = true, silent = true })
+    vim.keymap.set("n", "q", close_windows, { buffer = buf, noremap = true, silent = true })
+
+    -- History navigation
+    vim.keymap.set("n", "p", function()
+      if #COMMAND_HISTORY > 0 then
+        if HISTORY_INDEX < #COMMAND_HISTORY then
+          HISTORY_INDEX = HISTORY_INDEX + 1
+        end
+        local hist_cmd = COMMAND_HISTORY[HISTORY_INDEX]
+        if hist_cmd then
+          for idx, c in ipairs(COMMANDS) do
+            local arr = c.command or c
+            if vim.deep_equal(arr, hist_cmd) then
+              vim.api.nvim_win_set_cursor(win_id, { idx, 0 })
+              break
+            end
+          end
+        end
+      end
+    end, { buffer = buf, noremap = true, silent = true })
+
+    vim.keymap.set("n", "n", function()
+      if #COMMAND_HISTORY > 0 and HISTORY_INDEX > 1 then
+        HISTORY_INDEX = HISTORY_INDEX - 1
+        local hist_cmd = COMMAND_HISTORY[HISTORY_INDEX]
+        if hist_cmd then
+          for idx, c in ipairs(COMMANDS) do
+            local arr = c.command or c
+            if vim.deep_equal(arr, hist_cmd) then
+              vim.api.nvim_win_set_cursor(win_id, { idx, 0 })
+              break
+            end
+          end
+        end
+      end
+    end, { buffer = buf, noremap = true, silent = true })
+
+    -- Run command under cursor
+    vim.keymap.set("n", "<CR>", function()
+      local cursor = vim.api.nvim_win_get_cursor(win_id)
+      local row = cursor[1]
+      local selected_cmd = COMMANDS[row]
+      if selected_cmd then
+        local cmd_arr = selected_cmd.command
+        add_to_history(cmd_arr)
+        close_windows()
+        run_selected_command(selected_cmd, function()
+          show_command_list()
+        end)
+      end
+    end, { buffer = buf, noremap = true, silent = true })
+
+    -- Clear piped data
+    vim.keymap.set("n", "c", function()
+      output_ui.clear_last_output()
+      close_windows()
+      show_command_list()
+    end, { buffer = buf, noremap = true, silent = true })
+  end
+
+  local popup_opts = {
+    title = "Command List",
+    title_pos = "center",
+    width = math.floor(vim.o.columns * 0.5),
+    height = math.floor(vim.o.lines * 0.4),
+    border = "rounded",
+  }
+
+  popup.create(display_lines, keymaps, popup_opts)
+end
+
+-- Main entry point
+function M.run(opts)
+  local config = require("command_runner.core.config").options
+  
+  -- Allow providing a specific JSON file path
+  local cmd_file
+  
+  if opts and opts.args and opts.args ~= "" then
+    -- Use provided file path
+    cmd_file = opts.args
+  elseif JSON_FILE_PATH then
+    -- Use cached file path
+    cmd_file = JSON_FILE_PATH
+  elseif config.default_json_path then
+    -- Use configured default path
+    cmd_file = config.default_json_path
+  else
+    -- Default to commands.json in current working directory
+    cmd_file = vim.fn.getcwd() .. "/commands.json"
+  end
+  
+  -- Store the path for future use
+  JSON_FILE_PATH = cmd_file
+  
+  local list, err = load_commands_from_json(cmd_file)
+  if err then
+    vim.notify(err, vim.log.levels.ERROR)
+    return
+  end
+
+  COMMANDS = list
+  if #COMMANDS == 0 then
+    vim.notify("No commands found in JSON file: " .. cmd_file, vim.log.levels.WARN)
+    return
+  end
+
+  show_command_list()
 end
 
 return M

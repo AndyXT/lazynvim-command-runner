@@ -1,145 +1,146 @@
-*command_runner.txt*  Run shell commands from JSON config files
+*command_runner.txt*        For Neovim >= 0.8.0        Last change: 2023 December 15
 
 ==============================================================================
-CONTENTS                                               *command-runner-contents*
+Table of Contents                                 *command-runner-toc*
 
-    1. Introduction ................ |command-runner-introduction|
-    2. Installation ................ |command-runner-installation|
-    3. Configuration ............... |command-runner-configuration|
-    4. Usage ....................... |command-runner-usage|
-    5. Commands .................... |command-runner-commands|
-    6. Mappings .................... |command-runner-mappings|
-    7. JSON Format ................. |command-runner-json-format|
-    8. License ..................... |command-runner-license|
-
-==============================================================================
-1. INTRODUCTION                                     *command-runner-introduction*
-
-Command Runner is a Neovim plugin that allows you to run shell commands from
-JSON configuration files. It provides a convenient UI for selecting, executing,
-and viewing the output of commands, with support for piping output between
-commands.
+1. Introduction                                   |command-runner-introduction|
+2. Installation                                   |command-runner-installation|
+3. Configuration                                  |command-runner-configuration|
+4. Usage                                          |command-runner-usage|
+5. Commands                                       |command-runner-commands|
+6. Mappings                                       |command-runner-mappings|
+7. Advanced Features                              |command-runner-advanced|
+8. Known Issues                                   |command-runner-issues|
+9. License                                        |command-runner-license|
 
 ==============================================================================
-2. INSTALLATION                                     *command-runner-installation*
+1. Introduction                                   *command-runner-introduction*
 
-Using LazyVim: >
+Command Runner is a Neovim plugin to run shell commands from a predefined JSON
+configuration. It provides a convenient UI for executing, managing, and piping 
+command output between commands.
 
-    {
-      "yourusername/command-runner.nvim",
-      event = "VeryLazy",
-      config = function()
-        require("command_runner").setup({
-          -- your configuration here
-        })
-        
-        -- Add keymapping
-        vim.keymap.set("n", "<leader>cr", "<cmd>CommandRunner<cr>", 
-          { desc = "Run commands from JSON file" })
-      end,
+Features:
+- Run shell commands from a JSON configuration file
+- Pipe output between commands
+- Store command history for easy reuse
+- Detailed error reporting and inspection
+- Clean, minimal UI with keybindings
+- Customizable configuration
+
+==============================================================================
+2. Installation                                   *command-runner-installation*
+
+Using lazy.nvim: >lua
+  {
+    "yourusername/command-runner.nvim",
+    event = "VeryLazy",
+    config = function()
+      require("command_runner").setup({
+        -- options...
+      })
+    end,
+  }
+<
+
+Using packer.nvim: >lua
+  use {
+    "yourusername/command-runner.nvim",
+    config = function()
+      require("command_runner").setup({
+        -- options...
+      })
+    end,
+  }
+<
+
+==============================================================================
+3. Configuration                                  *command-runner-configuration*
+
+Default configuration: >lua
+  require("command_runner").setup({
+    command_name = "CommandRunner", -- The name of the command to use
+    default_json_path = nil, -- Default path to commands.json (nil = use CWD)
+    max_history = 50, -- Maximum number of commands to store in history
+    popup = {
+      width = 0.5, -- 50% of screen width
+      height = 0.4, -- 40% of screen height
+      border = "rounded",
+    },
+    status = {
+      show = true,
+      duration = 3000, -- milliseconds
     }
+  })
 <
 
-Using Packer: >
-
-    use {
-      'yourusername/command-runner.nvim',
-      config = function()
-        require("command_runner").setup({
-          -- your configuration here
-        })
-        
-        -- Add keymapping
-        vim.keymap.set("n", "<leader>cr", "<cmd>CommandRunner<cr>", 
-          { desc = "Run commands from JSON file" })
-      end
-    }
+Adding a keymap: >lua
+  vim.keymap.set("n", "<leader>cr", "<cmd>CommandRunner<cr>", 
+    { desc = "Run commands from JSON file" })
 <
 
 ==============================================================================
-3. CONFIGURATION                                   *command-runner-configuration*
+4. Usage                                          *command-runner-usage*
 
-Default configuration: >
+Commands JSON Format ~
 
-    require("command_runner").setup({
-      command_name = "CommandRunner",  -- The name of the command
-      default_json_path = nil,         -- Default path to commands.json (nil = use CWD)
-      max_history = 50,                -- Number of commands to keep in history
-      popup_width = 0.5,               -- Width of popup windows (0-1)
-      popup_height = 0.4,              -- Height of popup windows (0-1)
-      popup_border = "rounded",        -- Border style for popups
-      highlight_success = "Normal",    -- Highlight group for success
-      highlight_error = "ErrorFloat",  -- Highlight group for errors
-      highlight_warning = "WarningFloat", -- Highlight group for warnings
-    })
+Create a `commands.json` file in your project directory: >json
+  {
+    "commands": [
+      {
+        "command": ["ls", "-la"],
+        "description": "List all files with details"
+      },
+      {
+        "command": ["echo", "Hello", "World!"],
+        "description": "Print greeting message"
+      },
+      {
+        "command": ["git", "status"],
+        "description": "View git status"
+      }
+    ]
+  }
 <
 
 ==============================================================================
-4. USAGE                                                 *command-runner-usage*
+5. Commands                                       *command-runner-commands*
 
-Basic usage:
-
-1. Create a `commands.json` file in your project directory
-2. Run `:CommandRunner` to show the command list
-3. Select a command with the cursor and press Enter to run
-4. View command output in a popup window
-5. Optionally pipe output to another command
-
-Piping output between commands:
-
-After running a command, you can pipe its output to another command:
-
-1. Press `p` in the output window
-2. Choose what to pipe (current line, selection, or all output)
-3. The output will be piped to the next command you run
-4. Commands with piped input show a 📎 icon
+`:CommandRunner`                                 Open the command list UI
+`:CommandRunner /path/to/commands.json`          Open with specific file
 
 ==============================================================================
-5. COMMANDS                                           *command-runner-commands*
+6. Mappings                                       *command-runner-mappings*
 
-:CommandRunner [path]                                        *:CommandRunner*
-    Open the command list window. If [path] is provided, load commands from
-    that JSON file. Otherwise, use the default path (CWD/commands.json).
+Command List UI ~
+  <CR>    Run the selected command
+  c       Clear piped output
+  q/Esc   Close the UI
+  p/n     Navigate through command history
 
-==============================================================================
-6. MAPPINGS                                           *command-runner-mappings*
-
-Command List Window:
-    <CR>    - Run selected command
-    c       - Clear piped data
-    p       - Previous command in history
-    n       - Next command in history
-    q       - Close window
-
-Output Window:
-    p       - Pipe output
-    n       - Skip pipe
-    v       - Visual select for piping
-    e       - Show error details (for failed commands)
-    q       - Close window
+Command Output UI ~
+  p       Pipe output (with options: line, selection, all)
+  n       Skip piping (clear pipe buffer)
+  e       View error details (only if command failed)
+  q/Esc   Close the output view
 
 ==============================================================================
-7. JSON FORMAT                                     *command-runner-json-format*
+7. Advanced Features                              *command-runner-advanced*
 
-Basic JSON format: >
+Piping Between Commands ~
 
-    {
-      "commands": [
-        {
-          "command": ["executable", "arg1", "arg2"],
-          "description": "Human readable description"
-        }
-      ]
-    }
-<
-
-Each command has the following attributes:
-- `command`: An array of strings representing the command and its arguments
-- `description`: A human-readable description of what the command does
+You can pipe output from one command to another:
+1. Run a command
+2. Press 'p' to pipe the output
+3. Select what to pipe (line at cursor, selection, or all)
+4. Run another command that will receive the piped content as arguments
 
 ==============================================================================
-8. LICENSE                                             *command-runner-license*
+8. Known Issues                                   *command-runner-issues*
+
+None currently reported.
+
+==============================================================================
+9. License                                        *command-runner-license*
 
 MIT License
-
-vim:tw=78:ts=8:ft=help:norl:

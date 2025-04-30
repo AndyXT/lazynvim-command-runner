@@ -1,27 +1,24 @@
--- config.lua
--- Configuration management for Command Runner
-
 local M = {}
 
--- Default configuration
-M.options = {
+M.defaults = {
   command_name = "CommandRunner",
-  default_json_path = nil, -- Default to CWD/commands.json
+  default_json_path = nil, -- Will use CWD by default
   max_history = 50,
-  popup_width = 0.5,      -- Percentage of screen width
-  popup_height = 0.4,     -- Percentage of screen height
-  popup_border = "rounded",
-  highlight_success = "Normal",
-  highlight_error = "ErrorFloat",
-  highlight_warning = "WarningFloat",
+  popup = {
+    width = 0.5, -- 50% of screen width
+    height = 0.4, -- 40% of screen height
+    border = "rounded",
+  },
+  status = {
+    show = true,
+    duration = 3000, -- milliseconds
+  }
 }
 
--- Setup function
+M.options = {}
+
 function M.setup(opts)
-  -- Merge user options with defaults
-  for k, v in pairs(opts) do
-    M.options[k] = v
-  end
+  M.options = vim.tbl_deep_extend("force", {}, M.defaults, opts or {})
 end
 
 return M

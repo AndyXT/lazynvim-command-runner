@@ -1,16 +1,12 @@
 return {
-  "~/.config/lazynvim-command-runner", -- Local plugin path
-  name = "command-runner",           -- Plugin name
-  event = "VeryLazy",                -- Load when needed
+  "command-runner",
+  dir = vim.fn.expand("~/.config/lazynvim-command-runner"),
+  event = "VeryLazy",
   config = function()
-    -- Load and configure the command runner
     require("command_runner").setup({
       -- Customize options here
       command_name = "CommandRunner", -- The name of the command to use
-      default_json_path = nil,        -- Default path to commands.json (nil = use CWD)
-      popup_width = 0.5,              -- Percentage of screen width
-      popup_height = 0.4,             -- Percentage of screen height
-      popup_border = "rounded",       -- Border style
+      default_json_path = nil, -- Default path to commands.json (nil = use CWD)
     })
     
     -- Add keymapping if desired
